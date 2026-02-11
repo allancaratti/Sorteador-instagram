@@ -1,0 +1,11 @@
+# Arquivos gerados pelo Python
+__pycache__/
+*.pyc
+
+# Arquivos gerados pelo app (Planilhas)
+*.xlsx
+*.csv
+
+# Pasta de ambiente virtual (se você criar uma)
+venv/
+.venv/
