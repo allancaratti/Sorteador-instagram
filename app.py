@@ -92,7 +92,22 @@ if st.session_state.df_participantes is not None:
             st.info(f"🏆 O VENCEDOR É O NÚMERO **{ganhador.index[0]}**: @{ganhador['Usuario'].values[0]}")
 
     with col_download:
+        # Define o caminho da pasta data
+        pasta_data = "data"
+        if not os.path.exists(pasta_data):
+            os.makedirs(pasta_data)
+        
         nome_arq = "participantes.xlsx"
-        df.to_excel(nome_arq, index=True)
-        with open(nome_arq, "rb") as f:
-            st.download_button("📥 Baixar Planilha", f, file_name=nome_arq)
+        caminho_completo = os.path.join(pasta_data, nome_arq)
+        
+        # Salva automaticamente na pasta data do projeto
+        df.to_excel(caminho_completo, index=True)
+        
+        # Disponibiliza o botão para o seu download manual.
+        with open(caminho_completo, "rb") as f:
+            st.download_button(
+                label="📥 Baixar Planilha",
+                data=f,
+                file_name=nome_arq,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
