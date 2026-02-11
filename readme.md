@@ -39,7 +39,7 @@ Permite a coleta de dados de postagens públicas, exportação para **Excel** co
 
 2. Instale as dependências:
     ```bash
-    pip install streamlit instaloader pandas openpyxl pillow
+    pip install -r requirements.txt
     ```
 
 3. Execute o aplicativo:
