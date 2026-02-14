@@ -3,3 +3,4 @@ instaloader
 pandas
 openpyxl
 pillow
+browser-cookie3
