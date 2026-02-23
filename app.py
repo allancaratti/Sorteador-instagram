@@ -8,58 +8,59 @@ import time
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Sorteador DivineTech", layout="wide")
 
-# --- MEMÓRIA DO STREAMLIT (Session State) ---
+# --- MEMÓRIA DO STREAMLIT ---
 if "df_participantes" not in st.session_state:
     st.session_state.df_participantes = None
 
-# --- CABEÇALHO COM LOGOTIPO ---
+# --- CABEÇALHO ---
 col1, col2 = st.columns([1, 5])
-
 with col1:
     path_logo = os.path.join("images", "logo_divine.png")
     if os.path.exists(path_logo):
-        logo = Image.open(path_logo)
-        st.image(logo, width=120)
+        st.image(Image.open(path_logo), width=120)
 
 with col2:
-    st.markdown(
-        """
-        <div style="text-align: center;">
-            <h1 style="margin-bottom: 0;">Sorteador de Instagram By DivineTech Solutions</h1>
-            <h2 style="font-size: 1.2rem; color: #555; margin-top: 0;">Sorteie ganhadores através de comentários do Instagram</h2>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown("<div style='text-align: center;'><h1 style='margin-bottom: 0;'>Sorteador de Instagram By DivineTech Solutions</h1></div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
-# --- SIDEBAR ---
+# --- SIDEBAR ADAPTADA ---
 st.sidebar.header("Configurações de Acesso")
-modo_logado = st.sidebar.checkbox("Realizar coleta logado")
-usuario_insta = st.sidebar.text_input("Usuário:", value="") if modo_logado else ""
-senha_insta = st.sidebar.text_input("Senha:", type="password") if modo_logado else ""
+usuario_insta = st.sidebar.text_input("Seu Usuário Instagram:", value="")
+st.sidebar.info("O sistema tentará usar a sessão salva no seu computador para evitar bloqueios.")
 
 # --- INTERFACE PRINCIPAL ---
 url_post = st.text_input("URL da postagem pública:")
-remover_duplicados = st.checkbox("Remover usuários duplicados")
+remover_duplicados = st.checkbox("Remover usuários duplicados", value=True)
 
 if st.button("🚀 Iniciar Captura"):
-    if not url_post:
-        st.warning("Insira a URL.")
+    if not url_post or not usuario_insta:
+        st.warning("Preencha a URL e o Usuário.")
     else:
         try:
             L = instaloader.Instaloader()
-            if modo_logado:
-                L.login(usuario_insta, senha_insta)
             
+            # TENTA CARREGAR SESSÃO DO PC (Bypass de Bloqueio)
+            try:
+                L.load_session_from_file(usuario_insta)
+                st.sidebar.success("Sessão carregada com sucesso!")
+            except FileNotFoundError:
+                st.sidebar.warning("Sessão local não encontrada. Rode o comando de login no terminal primeiro.")
+                st.stop()
+
+            # EXTRAÇÃO
             shortcode = url_post.split("/")[-2] if url_post.endswith("/") else url_post.split("/")[-1]
             post = instaloader.Post.from_shortcode(L.context, shortcode)
             
             lista = []
-            with st.spinner("Coletando..."):
+            container_progresso = st.empty()
+            
+            with st.spinner("Coletando comentários..."):
                 for comment in post.get_comments():
                     lista.append({"Usuario": comment.owner.username, "Comentario": comment.text})
+                    container_progresso.write(f"Participantes coletados: {len(lista)}")
+                    # Pequena pausa para não ser bloqueado novamente
+                    time.sleep(2.5) 
                 
                 df = pd.DataFrame(lista)
                 if not df.empty:
@@ -69,15 +70,14 @@ if st.button("🚀 Iniciar Captura"):
                     df = df.reset_index(drop=True)
                     df.index = df.index + 1
                     df.index.name = "Número da sorte"
-                    
-                    # SALVA NA MEMÓRIA
                     st.session_state.df_participantes = df
                 else:
                     st.error("Nenhum comentário encontrado.")
+                    
         except Exception as e:
-            st.error(f"Erro: {e}")
+            st.error(f"Erro do Instagram: {e}")
 
-# --- SEÇÃO DE RESULTADOS (SÓ APARECE SE TIVER DADOS NA MEMÓRIA) ---
+# --- SEÇÃO DE RESULTADOS ---
 if st.session_state.df_participantes is not None:
     df = st.session_state.df_participantes
     st.success(f"Captura concluída! {len(df)} participantes prontos.")
@@ -92,22 +92,13 @@ if st.session_state.df_participantes is not None:
             st.info(f"🏆 O VENCEDOR É O NÚMERO **{ganhador.index[0]}**: @{ganhador['Usuario'].values[0]}")
 
     with col_download:
-        # Define o caminho da pasta data
         pasta_data = "data"
-        if not os.path.exists(pasta_data):
-            os.makedirs(pasta_data)
+        if not os.path.exists(pasta_data): os.makedirs(pasta_data)
         
-        nome_arq = "participantes.xlsx"
+        timestamp = time.strftime("%Y-%m-%d_%H-%M")
+        nome_arq = f"participantes_{timestamp}.xlsx"
         caminho_completo = os.path.join(pasta_data, nome_arq)
         
-        # Salva automaticamente na pasta data do projeto
         df.to_excel(caminho_completo, index=True)
-        
-        # Disponibiliza o botão para o seu download manual.
         with open(caminho_completo, "rb") as f:
-            st.download_button(
-                label="📥 Baixar Planilha",
-                data=f,
-                file_name=nome_arq,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            st.download_button("📥 Baixar Planilha", f, file_name=nome_arq)
